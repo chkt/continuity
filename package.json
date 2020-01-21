@@ -16,6 +16,10 @@
 		"url": "https://github.com/chkt/continuity"
 	},
 
+	"engines": {
+		"node" : ">=8.0"
+	},
+
 	"files": [ "dist" ],
 	"main": "./dist/index.js",
 
