@@ -1,0 +1,28 @@
+{
+	"include" : [
+		"./source/**/*"
+	],
+	"compilerOptions": {
+		"baseUrl": ".",
+		"outDir": "./dist",
+
+		"target": "es2018",
+		"lib": [
+			"esnext.asynciterable"
+		],
+		"module": "commonjs",
+		"newLine": "LF",
+
+		"sourceMap": false,
+		"declaration": true,
+
+		"strict": true,
+		"noImplicitAny": true,
+		"noImplicitThis": true,
+		"strictFunctionTypes": true,
+		"strictNullChecks": true,
+		"strictPropertyInitialization": true,
+		"removeComments": true
+	},
+	"compileOnSave": true
+}

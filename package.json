@@ -1,0 +1,41 @@
+{
+	"name": "@chkt/continuity",
+	"description": "Sequentially aligned promise resolution",
+	"keywords": [ "promise", "sequence", "sequential", "typescript", "ts" ],
+	"version": "1.0.0-beta.1",
+	"license": "MIT",
+
+	"author": {
+		"name": "chkt",
+		"email": "ck@chkt.one",
+		"url": "chkt.one"
+	},
+
+	"repository": {
+		"type" : "git",
+		"url": "https://github.com/chkt/continuity"
+	},
+
+	"files": [ "dist" ],
+	"main": "./dist/index.js",
+
+	"scripts" : {
+		"prepare": "npm run test && npm run lint && npm run build",
+
+		"lint" : "./node_modules/tslint/bin/tslint -p tsconfig.json",
+		"test" : "./node_modules/mocha/bin/mocha -r ts-node/register test/**/*.ts",
+		"build" : "rm -rf ./dist/* && ./node_modules/typescript/bin/tsc"
+	},
+
+	"devDependencies": {
+		"typescript": "^3.5",
+		"tslint": "^5.18",
+		"ts-node": "^8.3",
+		"mocha": "^6.2",
+		"nyc": "^14.1",
+		"@types/node": "^12.7",
+		"@types/mocha": "^5.2"
+	},
+
+	"dependencies": {}
+}
