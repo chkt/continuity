@@ -1,3 +1,11 @@
+[![Tests](https://github.com/chkt/continuity/workflows/tests/badge.svg)](https://github.com/chkt/continuity/actions)
+[![Version](https://img.shields.io/npm/v/@chkt/continuity)](https://www.npmjs.com/package/@chkt/continuity)
+![Node](https://img.shields.io/node/v/@chkt/continuity)
+![Dependencies](https://img.shields.io/librariesio/release/npm/@chkt/continuity)
+![Licence](https://img.shields.io/npm/l/@chkt/continuity)
+![Language](https://img.shields.io/github/languages/top/chkt/continuity)
+![Size](https://img.shields.io/bundlephobia/min/@chkt/onceupon)
+
 # Continuity
 Sequentially aligned promise resolution
 
