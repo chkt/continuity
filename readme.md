@@ -12,7 +12,7 @@ Sequentially aligned promise resolution
 ## Install
 
 ```sh
-npm install @chkt/sequential
+npm install @chkt/continuity
 ```
 
 ## Use
