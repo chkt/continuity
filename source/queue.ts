@@ -3,6 +3,10 @@ import { getOffset } from "./loop";
 import { createScheduleResult, result_type, ScheduleResult } from "./schedule";
 
 
+export interface QueueOptions {
+	readonly maxBlocked : number;
+}
+
 interface QueueItem {
 	readonly id : number;
 	readonly resolve : resolve<ScheduleResult>;
@@ -43,7 +47,7 @@ export function insert(queue:QueueItems, item:QueueItem) : QueueItems {
 		.concat(item, queue.slice(index));
 }
 
-function process(queue:QueueItems) {
+function process(queue:QueueItems) : number {
 	let num = 0;
 
 	for (const item of queue) {
@@ -60,20 +64,38 @@ function scheduleProcessing(queue:QueueItems) : Promise<number> {
 		.then(q => process(q));
 }
 
-export function flush(queue:QueueItems, first:number) : FlushResult {
-	let index = 0;
+export function flush(queue:QueueItems, firstId:number, options:QueueOptions) : FlushResult {
+	let startOffset = 0;
+	let queueIndex = 0;
+	let lastId = Number.NaN;
 	let skew = 0;
 
-	for (const item of queue) {
-		const o = getOffset(first, item.id);
+	for (let index = 0, l = queue.length; index < l; index += 1) {
+		const item = queue[index];
+		const itemOffset = getOffset(firstId, item.id);
 
-		if (o === index + skew || o === index + --skew) index += 1;
-		else break;
+		if (item.id === lastId) {
+			if (queueIndex === index) queueIndex += 1;
+			else skew -= 1;
+
+			continue;
+		}
+		else lastId = item.id;
+
+		const totalCount = itemOffset - startOffset + 1;
+		const itemCount = index + skew - queueIndex + 1;
+		const missingCount = totalCount - itemCount;
+
+		if (missingCount === 0 || itemCount / missingCount > options.maxBlocked) {
+			startOffset += totalCount;
+			queueIndex = index + 1;
+			skew = 0;
+		}
 	}
 
 	return createFlushResult(
-		index,
-		queue.slice(index),
-		scheduleProcessing(queue.slice(0, index))
+		queueIndex,
+		queue.slice(queueIndex),
+		scheduleProcessing(queue.slice(0, queueIndex))
 	);
 }

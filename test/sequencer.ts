@@ -43,6 +43,24 @@ describe('schedule', () => {
 		assert.deepStrictEqual(res, { id, type });
 	}
 
+	function assertAll(
+		items:ReadonlyArray<Promise<ScheduleResult>>,
+		types:ReadonlyArray<result_type>
+	) : Promise<number[]> {
+		const order:number[] = [];
+
+		return new Promise(resolve => {
+			items.forEach((p, index) => {
+				p.then(res => {
+					assert.deepStrictEqual(res, { id : index, type : types[index] });
+					order.push(res.id);
+
+					if (order.length === items.length) resolve(order);
+				});
+			});
+		});
+	}
+
 	it('should schedule in-order calls immediately', () => {
 		const sequencer = createSequencer({ next : Number.MAX_SAFE_INTEGER - 1 });
 		const pa = sequencer.immediate();
@@ -203,7 +221,7 @@ describe('schedule', () => {
 			});
 	});
 
-	it('should handle queue gaps out-of-order processing', () => {
+	it('should handle queue gaps during out-of-order processing', () => {
 		const sequencer = createSequencer();
 		const ida = sequencer.register();
 		const idb = sequencer.register();
@@ -238,10 +256,61 @@ describe('schedule', () => {
 			});
 		});
 	});
+
+	it('should limit the ratio of blocked ids', () => {
+		const queued = result_type.queued, late = result_type.late;
+		const sequencer = createSequencer({ maxBlocked : 1 });
+		const ida = sequencer.register();
+		const pb = sequencer.immediate(), pc = sequencer.immediate();
+
+		return assertAll(
+			[ sequencer.schedule(ida), pb, pc ],
+			[ late, queued, queued ]
+		)
+			.then(order => {
+				assert.deepStrictEqual(order, [ 1, 2, 0 ]);
+			});
+	});
+
+	it('should limit the ratio of blocked ids with arbitrary gaps', () => {
+		const queued = result_type.queued, late = result_type.late;
+		const sequencer = createSequencer({ maxBlocked : 1 });
+		const ida = sequencer.register();
+		const pb = sequencer.immediate();
+		const idc = sequencer.register();
+		const pd = sequencer.immediate(), pe = sequencer.immediate();
+		const pc = sequencer.schedule(idc);
+
+		return assertAll(
+			[ sequencer.schedule(ida), pb, pc, pd, pe ],
+			[ late, queued, late, queued, queued ]
+		)
+			.then(order => {
+				assert.deepStrictEqual(order, [ 1, 3, 4, 2, 0 ]);
+			});
+	});
+
+	it('should limit the ratio of blocked ids sequentially', () => {
+		const queued = result_type.queued, late = result_type.late;
+		const sequencer = createSequencer({ maxBlocked : 1 });
+		const ida = sequencer.register();
+		const pb = sequencer.immediate();
+		const idc = sequencer.register(), idd = sequencer.register();
+		const pe = sequencer.immediate();
+		const pc = sequencer.schedule(idc), pd = sequencer.schedule(idd);
+
+		return assertAll(
+			[sequencer.schedule(ida), pb, pc, pd, pe ],
+			[ late, queued, queued, queued, queued ]
+		)
+			.then(order => {
+				assert.deepStrictEqual(order, [ 1, 2, 3, 4, 0 ]);
+			});
+	});
 });
 
 describe('align', () => {
-	it('should provide syntactic sugar for inlining register/schedule', () => {
+	it('should provide syntactic sugar for inlining register/resolve', () => {
 		const sequencer = createSequencer();
 		const callOrder:string[] = [];
 		const runOrder:string[] = [];

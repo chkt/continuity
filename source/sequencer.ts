@@ -22,7 +22,7 @@ export function createSequencer(config?:SequencerConfig) : Sequencer {
 	let next = settings.next;
 	let last = settings.next;
 	let queue:QueueItems = [];
-	let foo = 0;
+	let scheduled = 0;
 
 	return {
 		register() : number {
@@ -35,21 +35,28 @@ export function createSequencer(config?:SequencerConfig) : Sequencer {
 		schedule(id:number) : Promise<ScheduleResult> {
 			const offset = getOffset(last, id);
 
-			if (offset < 0 || getOffset(next, id) >= 0) return Promise.resolve(createScheduleResult(id, result_type.late));
-			else if (offset === 0 && queue.length === 0 && foo === 0) {
+			if (offset < 0 || getOffset(next, id) >= 0) {
+				if (scheduled === 0) return Promise.resolve(createScheduleResult(id, result_type.late));
+				else return Promise.resolve(createScheduleResult(id, result_type.late)).then(res => res);
+			}
+			else if (offset === 0 && queue.length === 0 && scheduled === 0) {
 				last = advanceIndex(last);
 
 				return Promise.resolve(createScheduleResult(id, result_type.immediate));
 			}
 			else {
 				const deferred:Deferred<ScheduleResult, void> = createDeferred();
-				const flushed = flush(insert(queue, createQueueItem(id, deferred.resolve)), last);
+				const flushed = flush(
+					insert(queue, createQueueItem(id, deferred.resolve)),
+					last,
+					settings
+				);
 
 				queue = flushed.remain;
 				last = advanceIndex(last, flushed.num);
-				foo += flushed.num;
+				scheduled += flushed.num;
 
-				flushed.done.then(num => { foo -= num; });
+				flushed.done.then(num => { scheduled -= num; });
 
 				return deferred.promise;
 			}
