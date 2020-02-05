@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import { describe, it } from 'mocha';
 
-import { createSequencer } from "../source/sequencer";
+import { createSequencer, Sequencer } from "../source/sequencer";
 import { result_type, ScheduleResult } from "../source/schedule";
 
 
@@ -41,6 +41,22 @@ describe('register', () => {
 describe('schedule', () => {
 	function assertResult(res:ScheduleResult, id:number, type:result_type) {
 		assert.deepStrictEqual(res, { id, type });
+	}
+
+	function register(target:Sequencer, num:number) : number[] {
+		const res:number[] = [];
+
+		for (let i = 0; i < num; i += 1) res.push(target.register());
+
+		return res;
+	}
+
+	function schedule(target:Sequencer, ...ids:number[]) : Array<Promise<ScheduleResult>> {
+		const res:Array<Promise<ScheduleResult>> = [];
+
+		for (const id of ids) res.push(target.schedule(id));
+
+		return res;
 	}
 
 	function assertAll(
@@ -305,6 +321,25 @@ describe('schedule', () => {
 		)
 			.then(order => {
 				assert.deepStrictEqual(order, [ 1, 2, 3, 4, 0 ]);
+			});
+	});
+
+	it('should process consecutive blocks with arbitrary gaps', () => {
+		const queued = result_type.queued, late = result_type.late;
+		const sequencer = createSequencer({ maxBlocked : 1 });
+
+		const [ ida, idb ] = register(sequencer, 2);
+		const pc = sequencer.immediate();
+		const [ idd, ide ] = register(sequencer, 2);
+		const pf = sequencer.immediate();
+		const [ pb, pe, pd, pa ] = schedule(sequencer, idb, ide, idd, ida);
+
+		return assertAll(
+			[ pa, pb, pc, pd, pe, pf ],
+			[ late, queued, queued, late, queued, queued ]
+		)
+			.then(order => {
+				assert.deepStrictEqual(order, [ 1, 2, 4, 5, 3, 0 ]);
 			});
 	});
 });

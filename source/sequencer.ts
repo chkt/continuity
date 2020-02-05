@@ -1,7 +1,7 @@
 import { createDeferred, Deferred } from "./deferred";
 import { getSequencerSettings, SequencerConfig } from "./settings";
 import { advanceIndex, getOffset } from "./loop";
-import { createQueueItem, flush, insert, QueueItems } from "./queue";
+import { createQueueItem, split, insert, QueueItems, scheduleProcessing } from "./queue";
 import { createScheduleResult, result_type, ScheduleResult } from "./schedule";
 
 
@@ -46,17 +46,17 @@ export function createSequencer(config?:SequencerConfig) : Sequencer {
 			}
 			else {
 				const deferred:Deferred<ScheduleResult, void> = createDeferred();
-				const flushed = flush(
+				const pieces = split(
 					insert(queue, createQueueItem(id, deferred.resolve)),
 					last,
 					settings
 				);
 
-				queue = flushed.remain;
-				last = advanceIndex(last, flushed.num);
-				scheduled += flushed.num;
+				queue = pieces.partial;
+				last = advanceIndex(last, pieces.numIds);
+				scheduled += pieces.sequential.length;
 
-				flushed.done.then(num => { scheduled -= num; });
+				scheduleProcessing(pieces.sequential).then(num => { scheduled -= num; });
 
 				return deferred.promise;
 			}

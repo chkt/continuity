@@ -12,12 +12,12 @@ interface QueueItem {
 	readonly resolve : resolve<ScheduleResult>;
 }
 
-export type QueueItems = QueueItem[];
+export type QueueItems = ReadonlyArray<QueueItem>;
 
-interface FlushResult {
-	readonly num : number;
-	readonly remain : QueueItems;
-	readonly done : Promise<number>;
+interface SplitResult {
+	readonly numIds : number;
+	readonly sequential : QueueItems;
+	readonly partial : QueueItems;
 }
 
 
@@ -26,8 +26,8 @@ export function createQueueItem(id:number, resolve:resolve<ScheduleResult>) : Qu
 	return { id, resolve };
 }
 
-function createFlushResult(num:number, remain:QueueItems, done:Promise<number>) : FlushResult {
-	return { num, remain, done };
+function createSplitResult(numIds:number, sequential:QueueItems, partial:QueueItems) : SplitResult {
+	return { numIds, sequential, partial };
 }
 
 
@@ -58,13 +58,13 @@ function process(queue:QueueItems) : number {
 	return num;
 }
 
-function scheduleProcessing(queue:QueueItems) : Promise<number> {
+export function scheduleProcessing(queue:QueueItems) : Promise<number> {
 	return Promise
 		.resolve(queue)
 		.then(q => process(q));
 }
 
-export function flush(queue:QueueItems, firstId:number, options:QueueOptions) : FlushResult {
+export function split(queue:QueueItems, firstId:number, options:QueueOptions) : SplitResult {
 	let startOffset = 0;
 	let queueIndex = 0;
 	let lastId = Number.NaN;
@@ -93,9 +93,9 @@ export function flush(queue:QueueItems, firstId:number, options:QueueOptions) : 
 		}
 	}
 
-	return createFlushResult(
-		queueIndex,
-		queue.slice(queueIndex),
-		scheduleProcessing(queue.slice(0, queueIndex))
+	return createSplitResult(
+		startOffset,
+		queue.slice(0, queueIndex),
+		queue.slice(queueIndex)
 	);
 }
