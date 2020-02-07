@@ -9,7 +9,7 @@ type settle<T> = (val:T) => Promise<T>;
 
 export interface Sequencer {
 	register() : number;
-	schedule(id:number) : Promise<ScheduleResult>;
+	resolve(id:number) : Promise<ScheduleResult>;
 	immediate() : Promise<ScheduleResult>;
 	align<T>() : settle<T>;
 	assign<T>(p:Promise<T>) : Promise<T>;
@@ -32,7 +32,7 @@ export function createSequencer(config?:SequencerConfig) : Sequencer {
 
 			return res;
 		},
-		schedule(id:number) : Promise<ScheduleResult> {
+		resolve(id:number) : Promise<ScheduleResult> {
 			const offset = getOffset(last, id);
 
 			if (offset < 0 || getOffset(next, id) >= 0) {
@@ -62,12 +62,12 @@ export function createSequencer(config?:SequencerConfig) : Sequencer {
 			}
 		},
 		immediate(this:Sequencer) : Promise<ScheduleResult> {
-			return this.schedule(this.register());
+			return this.resolve(this.register());
 		},
 		align<T>(this:Sequencer) : settle<T> {
 			const id = this.register();
 
-			return val => this.schedule(id).then(() => val);
+			return val => this.resolve(id).then(() => val);
 		},
 		assign<T>(this:Sequencer, p:Promise<T>) : Promise<T> {
 			return p.then(this.align());

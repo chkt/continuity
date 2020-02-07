@@ -72,8 +72,8 @@ interface ScheduleResult {
 
 interface Sequencer {
   register() : number; // get a sequential id
-  schedule(id:number) : Promise<ScheduleResult>; // schedule a registered id for processing
-  immediate() : Promise<ScheduleResult>; // shorthand for sequencer.schedule(sequencer.register())
+  resolve(id:number) : Promise<ScheduleResult>; // resolve a registered id for processing
+  immediate() : Promise<ScheduleResult>; // shorthand for sequencer.resolve(sequencer.register())
   align<T>() : (val:T) => Promise<T>; // get a trigger function for scheduling
   assign<T>(p:Promise<T>) : Promise<T>; // shorthand for promise.then(sequencer.align())
 }

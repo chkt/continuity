@@ -54,7 +54,7 @@ describe('schedule', () => {
 	function schedule(target:Sequencer, ...ids:number[]) : Array<Promise<ScheduleResult>> {
 		const res:Array<Promise<ScheduleResult>> = [];
 
-		for (const id of ids) res.push(target.schedule(id));
+		for (const id of ids) res.push(target.resolve(id));
 
 		return res;
 	}
@@ -77,7 +77,7 @@ describe('schedule', () => {
 		});
 	}
 
-	it('should schedule in-order calls immediately', () => {
+	it('should resolve in-order calls immediately', () => {
 		const sequencer = createSequencer({ next : Number.MAX_SAFE_INTEGER - 1 });
 		const pa = sequencer.immediate();
 		const pb = sequencer.immediate();
@@ -99,15 +99,15 @@ describe('schedule', () => {
 			});
 	});
 
-	it('should schedule out-of-order calls asynchronously', () => {
+	it('should resolve out-of-order calls asynchronously', () => {
 		const sequencer = createSequencer({ next : Number.MAX_SAFE_INTEGER - 1 });
 		const ida = sequencer.register();
 		const idb = sequencer.register();
 		const tokens:string[] = [];
 
-		const pb = sequencer.schedule(idb);
+		const pb = sequencer.resolve(idb);
 		const pc = sequencer.immediate();
-		const pa = sequencer.schedule(ida);
+		const pa = sequencer.resolve(ida);
 
 		pa.then(res => {
 			assertResult(res, Number.MAX_SAFE_INTEGER - 1, result_type.queued);
@@ -129,7 +129,7 @@ describe('schedule', () => {
 			});
 	});
 
-	it('should immediately schedule recursive calls during in-order processing', () => {
+	it('should immediately resolve recursive calls during in-order processing', () => {
 		const sequencer = createSequencer({ next : Number.MAX_SAFE_INTEGER - 1 });
 		const tokens:string[] = [];
 
@@ -148,7 +148,7 @@ describe('schedule', () => {
 			});
 	});
 
-	it('should asynchronously schedule recursive calls during out-of-order processing', () => {
+	it('should asynchronously resolve recursive calls during out-of-order processing', () => {
 		const sequencer = createSequencer({ next : Number.MAX_SAFE_INTEGER - 2 });
 		const ida = sequencer.register();
 		const tokens:string[] = [];
@@ -158,7 +158,7 @@ describe('schedule', () => {
 			tokens.push('b');
 		});
 
-		const pa = sequencer.schedule(ida).then(ret => {
+		const pa = sequencer.resolve(ida).then(ret => {
 			assertResult(ret, Number.MAX_SAFE_INTEGER - 2, result_type.queued);
 			tokens.push('a');
 
@@ -175,11 +175,11 @@ describe('schedule', () => {
 			});
 	});
 
-	it('should handle arbitrary ids outside schedule', () => {
+	it('should handle arbitrary ids outside resolve', () => {
 		const sequencer = createSequencer({ next : 0 });
-		const pa = sequencer.schedule(Number.MAX_SAFE_INTEGER - 1);
-		const pb = sequencer.schedule(1);
-		const pc = sequencer.schedule(0);
+		const pa = sequencer.resolve(Number.MAX_SAFE_INTEGER - 1);
+		const pb = sequencer.resolve(1);
+		const pc = sequencer.resolve(0);
 		const tokens:string[] = [];
 
 		pa.then(ret => {
@@ -202,15 +202,15 @@ describe('schedule', () => {
 			});
 	});
 
-	it('should handle arbitrary ids within schedule', () => {
+	it('should handle arbitrary ids within resolve', () => {
 		const sequencer = createSequencer({ next : Number.MAX_SAFE_INTEGER - 1});
 		const ida = sequencer.register();
 		const idb = sequencer.register();
 
 		const pd = sequencer.immediate();
-		const pc = sequencer.schedule(0);
-		const pb = sequencer.schedule(idb);
-		const pa = sequencer.schedule(ida);
+		const pc = sequencer.resolve(0);
+		const pb = sequencer.resolve(idb);
+		const pa = sequencer.resolve(ida);
 		const tokens:string[] = [];
 
 		pa.then(ret => {
@@ -244,8 +244,8 @@ describe('schedule', () => {
 		const idc = sequencer.register();
 
 		const pd = sequencer.immediate();
-		const pb = sequencer.schedule(idb);
-		const pa = sequencer.schedule(ida);
+		const pb = sequencer.resolve(idb);
+		const pa = sequencer.resolve(ida);
 		const tokens:string[] = [];
 
 		pa.then(ret => {
@@ -262,7 +262,7 @@ describe('schedule', () => {
 		});
 
 		return Promise.all([ pa, pb ]).then(() => {
-			const pc = sequencer.schedule(idc).then(ret => {
+			const pc = sequencer.resolve(idc).then(ret => {
 				assertResult(ret, 2, result_type.queued);
 				tokens.push('c');
 			});
@@ -280,7 +280,7 @@ describe('schedule', () => {
 		const pb = sequencer.immediate(), pc = sequencer.immediate();
 
 		return assertAll(
-			[ sequencer.schedule(ida), pb, pc ],
+			[ sequencer.resolve(ida), pb, pc ],
 			[ late, queued, queued ]
 		)
 			.then(order => {
@@ -295,10 +295,10 @@ describe('schedule', () => {
 		const pb = sequencer.immediate();
 		const idc = sequencer.register();
 		const pd = sequencer.immediate(), pe = sequencer.immediate();
-		const pc = sequencer.schedule(idc);
+		const pc = sequencer.resolve(idc);
 
 		return assertAll(
-			[ sequencer.schedule(ida), pb, pc, pd, pe ],
+			[ sequencer.resolve(ida), pb, pc, pd, pe ],
 			[ late, queued, late, queued, queued ]
 		)
 			.then(order => {
@@ -313,10 +313,10 @@ describe('schedule', () => {
 		const pb = sequencer.immediate();
 		const idc = sequencer.register(), idd = sequencer.register();
 		const pe = sequencer.immediate();
-		const pc = sequencer.schedule(idc), pd = sequencer.schedule(idd);
+		const pc = sequencer.resolve(idc), pd = sequencer.resolve(idd);
 
 		return assertAll(
-			[sequencer.schedule(ida), pb, pc, pd, pe ],
+			[sequencer.resolve(ida), pb, pc, pd, pe ],
 			[ late, queued, queued, queued, queued ]
 		)
 			.then(order => {
