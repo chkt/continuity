@@ -19,8 +19,8 @@ export interface Sequencer {
 export function createSequencer(config?:SequencerConfig) : Sequencer {
 	const settings = getSequencerSettings(config);
 
-	let next = settings.next;
-	let last = settings.next;
+	let next = settings.firstId;
+	let last = settings.firstId;
 	let queue:QueueItems = [];
 	let scheduled = 0;
 

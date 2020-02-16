@@ -2,17 +2,17 @@ import { QueueOptions } from "./queue";
 
 
 export interface SequencerConfig extends Partial<QueueOptions> {
-	readonly next? : number;
+	readonly firstId? : number;
 }
 
 interface SequencerSettings extends Required<SequencerConfig> {}
 
 
 function createDefaultSettings() : SequencerSettings {
-	// tslint:disable-next-line:object-literal-sort-keys
 	return {
-		next : 0,
-		maxBlocked : Number.POSITIVE_INFINITY,
+		// tslint:disable-next-line:object-literal-sort-keys
+		firstId : 0,
+		maxRatio : Number.POSITIVE_INFINITY,
 		maxDelay : Number.POSITIVE_INFINITY
 	};
 }
@@ -20,8 +20,8 @@ function createDefaultSettings() : SequencerSettings {
 function normalizeSettings(settings:SequencerSettings) : SequencerSettings {
 	return {
 		// tslint:disable-next-line:object-literal-sort-keys
-		next : Math.max(settings.next % Number.MAX_SAFE_INTEGER, 0),
-		maxBlocked : Math.max(settings.maxBlocked, 0),
+		firstId : Math.max(settings.firstId % Number.MAX_SAFE_INTEGER, 0),
+		maxRatio : Math.max(settings.maxRatio, 0),
 		maxDelay : Math.max(settings.maxDelay, 0)
 	};
 }

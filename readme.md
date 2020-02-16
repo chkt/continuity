@@ -59,8 +59,9 @@ Promise.all(resolved).then(() => {
 ## Api
 ```typescript
 interface SequencerConfig {
-  readonly next? : number;
-  readonly maxBlocked? : number;
+  readonly firstId? : number;
+  readonly maxRatio? : number;
+  readonly maxDelay? : number;
 }
 
 enum result_type { immediate, late, queued }

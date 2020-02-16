@@ -4,7 +4,7 @@ import { createScheduleResult, result_type, ScheduleResult } from "./schedule";
 
 
 export interface QueueOptions {
-	readonly maxBlocked : number;
+	readonly maxRatio : number;
 	readonly maxDelay : number;
 }
 
@@ -97,7 +97,7 @@ export function split(queue:QueueItems, firstId:number, options:QueueOptions) : 
 		const itemCount = index + skew - queueIndex + 1;
 		const missingCount = totalCount - itemCount;
 
-		if (missingCount === 0 || itemCount / missingCount > options.maxBlocked) {
+		if (missingCount === 0 || itemCount / missingCount > options.maxRatio) {
 			startOffset += totalCount;
 			queueIndex = index + 1;
 			skew = 0;

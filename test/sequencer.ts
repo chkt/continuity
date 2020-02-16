@@ -15,21 +15,21 @@ describe('register', () => {
 	});
 
 	it ('should accept a configurable start id', () => {
-		assert.strictEqual(createSequencer({ next : 1 }).register(), 1);
-		assert.strictEqual(createSequencer({ next : -1 }).register(), 0);
+		assert.strictEqual(createSequencer({ firstId : 1 }).register(), 1);
+		assert.strictEqual(createSequencer({ firstId : -1 }).register(), 0);
 		assert.strictEqual(
-			createSequencer({ next : Number.MAX_SAFE_INTEGER - 1}).register(),
+			createSequencer({ firstId : Number.MAX_SAFE_INTEGER - 1}).register(),
 			Number.MAX_SAFE_INTEGER - 1
 		);
 		assert.strictEqual(
-			createSequencer({ next : Number.MAX_SAFE_INTEGER }).register(),
+			createSequencer({ firstId : Number.MAX_SAFE_INTEGER }).register(),
 			0
 		);
 	});
 
 	it('should wrap ids around safe integer boundaries', () => {
 		const sequencer = createSequencer({
-			next : Number.MAX_SAFE_INTEGER - 2
+			firstId : Number.MAX_SAFE_INTEGER - 2
 		});
 
 		assert.strictEqual(sequencer.register(), Number.MAX_SAFE_INTEGER - 2);
@@ -125,7 +125,7 @@ describe('schedule', () => {
 	}
 
 	it('should resolve in-order calls immediately', () => {
-		const sequencer = createSequencer({ next : Number.MAX_SAFE_INTEGER - 1 });
+		const sequencer = createSequencer({ firstId : Number.MAX_SAFE_INTEGER - 1 });
 		const pa = sequencer.immediate();
 		const pb = sequencer.immediate();
 		const tokens:string[] = [];
@@ -147,7 +147,7 @@ describe('schedule', () => {
 	});
 
 	it('should resolve out-of-order calls asynchronously', () => {
-		const sequencer = createSequencer({ next : Number.MAX_SAFE_INTEGER - 1 });
+		const sequencer = createSequencer({ firstId : Number.MAX_SAFE_INTEGER - 1 });
 		const ida = sequencer.register();
 		const idb = sequencer.register();
 		const tokens:string[] = [];
@@ -177,7 +177,7 @@ describe('schedule', () => {
 	});
 
 	it('should immediately resolve recursive calls during in-order processing', () => {
-		const sequencer = createSequencer({ next : Number.MAX_SAFE_INTEGER - 1 });
+		const sequencer = createSequencer({ firstId : Number.MAX_SAFE_INTEGER - 1 });
 		const tokens:string[] = [];
 
 		return sequencer.immediate()
@@ -196,7 +196,7 @@ describe('schedule', () => {
 	});
 
 	it('should asynchronously resolve recursive calls during out-of-order processing', () => {
-		const sequencer = createSequencer({ next : Number.MAX_SAFE_INTEGER - 2 });
+		const sequencer = createSequencer({ firstId : Number.MAX_SAFE_INTEGER - 2 });
 		const ida = sequencer.register();
 		const tokens:string[] = [];
 
@@ -223,7 +223,7 @@ describe('schedule', () => {
 	});
 
 	it('should handle arbitrary ids outside schedule', () => {
-		const sequencer = createSequencer({ next : 0 });
+		const sequencer = createSequencer({ firstId : 0 });
 		const pa = sequencer.resolve(Number.MAX_SAFE_INTEGER - 1);
 		const pb = sequencer.resolve(1);
 		const pc = sequencer.resolve(0);
@@ -250,7 +250,7 @@ describe('schedule', () => {
 	});
 
 	it('should handle arbitrary ids within schedule', () => {
-		const sequencer = createSequencer({ next : Number.MAX_SAFE_INTEGER - 1});
+		const sequencer = createSequencer({ firstId : Number.MAX_SAFE_INTEGER - 1});
 		const ida = sequencer.register();
 		const idb = sequencer.register();
 
@@ -322,7 +322,7 @@ describe('schedule', () => {
 
 	it('should limit the ratio of blocked ids', () => {
 		const queued = result_type.queued, late = result_type.late;
-		const sequencer = createSequencer({ maxBlocked : 1 });
+		const sequencer = createSequencer({ maxRatio : 1 });
 		const ida = sequencer.register();
 		const pb = sequencer.immediate(), pc = sequencer.immediate();
 
@@ -337,7 +337,7 @@ describe('schedule', () => {
 
 	it('should limit the ratio of blocked ids with arbitrary gaps', () => {
 		const queued = result_type.queued, late = result_type.late;
-		const sequencer = createSequencer({ maxBlocked : 1 });
+		const sequencer = createSequencer({ maxRatio : 1 });
 		const ida = sequencer.register();
 		const pb = sequencer.immediate();
 		const idc = sequencer.register();
@@ -355,7 +355,7 @@ describe('schedule', () => {
 
 	it('should limit the ratio of blocked ids sequentially', () => {
 		const queued = result_type.queued, late = result_type.late;
-		const sequencer = createSequencer({ maxBlocked : 1 });
+		const sequencer = createSequencer({ maxRatio : 1 });
 		const ida = sequencer.register();
 		const pb = sequencer.immediate();
 		const idc = sequencer.register(), idd = sequencer.register();
@@ -411,7 +411,7 @@ describe('schedule', () => {
 
 	it('should limit the ratio & delay for blocked ids with delay unblocking', async () => {
 		const queued = result_type.queued, late = result_type.late;
-		const sequencer = createSequencer({ maxBlocked : 1, maxDelay : 100 });
+		const sequencer = createSequencer({ maxRatio : 1, maxDelay : 100 });
 
 		const [ ida, idb ] = register(sequencer, 2);
 		let idd:number;
@@ -431,7 +431,7 @@ describe('schedule', () => {
 
 	it('should limit the ratio & delay for blocked ids with ratio unblocking', async () => {
 		const queued = result_type.queued, late = result_type.late;
-		const sequencer = createSequencer({ maxBlocked : 1, maxDelay : 100 });
+		const sequencer = createSequencer({ maxRatio : 1, maxDelay : 100 });
 
 		const [ ida, idb ] = register(sequencer, 2);
 		let idd:number;
@@ -453,7 +453,7 @@ describe('schedule', () => {
 
 	it('should process consecutive blocks with arbitrary gaps', () => {
 		const queued = result_type.queued, late = result_type.late;
-		const sequencer = createSequencer({ maxBlocked : 1 });
+		const sequencer = createSequencer({ maxRatio : 1 });
 
 		const [ ida, idb ] = register(sequencer, 2);
 		const pc = sequencer.immediate();
