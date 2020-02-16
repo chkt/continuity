@@ -5,9 +5,10 @@ import { createScheduleResult, result_type, ScheduleResult } from "./schedule";
 
 export interface QueueOptions {
 	readonly maxBlocked : number;
+	readonly maxDelay : number;
 }
 
-interface QueueItem {
+export interface QueueItem {
 	readonly id : number;
 	readonly resolve : resolve<ScheduleResult>;
 }
@@ -30,6 +31,16 @@ function createSplitResult(numIds:number, sequential:QueueItems, partial:QueueIt
 	return { numIds, sequential, partial };
 }
 
+
+export function indexOf(queue:QueueItems, item:QueueItem) : number {
+	const id = item.id;
+
+	for (let i = 0, l = queue.length; i < l; i += 1) {
+		if (queue[i].id === id) return i;
+	}
+
+	return -1;
+}
 
 export function insert(queue:QueueItems, item:QueueItem) : QueueItems {
 	let index = 0;

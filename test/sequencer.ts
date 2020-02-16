@@ -39,10 +39,6 @@ describe('register', () => {
 });
 
 describe('schedule', () => {
-	function assertResult(res:ScheduleResult, id:number, type:result_type) {
-		assert.deepStrictEqual(res, { id, type });
-	}
-
 	function register(target:Sequencer, num:number) : number[] {
 		const res:number[] = [];
 
@@ -51,12 +47,32 @@ describe('schedule', () => {
 		return res;
 	}
 
-	function schedule(target:Sequencer, ...ids:number[]) : Array<Promise<ScheduleResult>> {
-		const res:Array<Promise<ScheduleResult>> = [];
+	function schedule(target:Sequencer, ...ids:number[]) : Promise<ScheduleResult>[] {
+		const res:Promise<ScheduleResult>[] = [];
 
 		for (const id of ids) res.push(target.resolve(id));
 
 		return res;
+	}
+
+	function immediate(target:Sequencer, num:number) : Promise<ScheduleResult>[] {
+		const res:Promise<ScheduleResult>[] = [];
+
+		for (let i = num; i > 0; i -= 1) res.push(target.immediate());
+
+		return res;
+	}
+
+	function delay(ms:number) : (val:number[]) => Promise<number[]> {
+		return val => {
+			return new Promise(resolve => {
+				setTimeout(resolve.bind(null, val), ms);
+			})
+		};
+	}
+
+	function assertResult(res:ScheduleResult, id:number, type:result_type) {
+		assert.deepStrictEqual(res, { id, type });
 	}
 
 	function assertAll(
@@ -75,6 +91,37 @@ describe('schedule', () => {
 				});
 			});
 		});
+	}
+
+	function assertNext(fn:() => [
+		ReadonlyArray<Promise<ScheduleResult>>,
+		ReadonlyArray<result_type>,
+		ReadonlyArray<number>
+	]) : (order:number[]) => Promise<number[]> {
+		return order => {
+			const [ items, types, ids ] = fn();
+
+			items.forEach((p, index) => {
+				p.then(res => {
+					const id = index < ids.length ? ids[index] : index;
+					const type = index < types.length ? types[index] : result_type.immediate;
+
+					assert.deepStrictEqual(res, { id, type });
+
+					order.push(res.id);
+				});
+			});
+
+			return Promise.resolve(order);
+		};
+	}
+
+	function assertOrder(expect:number[]) : (order:number[]) => Promise<number[]> {
+		return async order => {
+			assert.deepStrictEqual(order, expect);
+
+			return order;
+		};
 	}
 
 	it('should resolve in-order calls immediately', () => {
@@ -175,7 +222,7 @@ describe('schedule', () => {
 			});
 	});
 
-	it('should handle arbitrary ids outside resolve', () => {
+	it('should handle arbitrary ids outside schedule', () => {
 		const sequencer = createSequencer({ next : 0 });
 		const pa = sequencer.resolve(Number.MAX_SAFE_INTEGER - 1);
 		const pb = sequencer.resolve(1);
@@ -202,7 +249,7 @@ describe('schedule', () => {
 			});
 	});
 
-	it('should handle arbitrary ids within resolve', () => {
+	it('should handle arbitrary ids within schedule', () => {
 		const sequencer = createSequencer({ next : Number.MAX_SAFE_INTEGER - 1});
 		const ida = sequencer.register();
 		const idb = sequencer.register();
@@ -322,6 +369,86 @@ describe('schedule', () => {
 			.then(order => {
 				assert.deepStrictEqual(order, [ 1, 2, 3, 4, 0 ]);
 			});
+	});
+
+	it('should limit the delay for blocked ids', async () => {
+		const queued = result_type.queued, late = result_type.late;
+		const sequencer = createSequencer({ maxDelay : 100 });
+
+		const i0 = sequencer.register();
+		const p1 = sequencer.immediate();
+		const i2 = sequencer.register();
+		const p3 = sequencer.immediate();
+
+		return Promise.resolve([])
+			.then(assertNext(() => [[ p1, p3 ], [ queued, queued ], [ 1, 3]]))
+			.then(delay(120))
+			.then(assertNext(() => [ schedule(sequencer, i2, i0), [ late, late ], [ 2, 0 ]]))
+			.then(assertOrder([ 1, 3, 2, 0 ]));
+	});
+
+	it('should limit the delay for blocked ids with arbitrary gaps', async () => {
+		const queued = result_type.queued, late = result_type.late;
+		const sequencer = createSequencer({ maxDelay : 100 });
+
+		const i0 = sequencer.register();
+		let i2:number;
+
+		return Promise.resolve([])
+			.then(assertNext(() => [[ sequencer.immediate() ], [ queued ], [ 1 ]]))
+			.then(delay(60))
+			.then(assertNext(() => {
+				i2 = sequencer.register();
+
+				return [[ sequencer.immediate() ], [ queued ], [ 3 ]];
+			}))
+			.then(delay(60))
+			.then(assertNext(() => [[ sequencer.resolve(i0) ], [ late ], [ 0 ]]))
+			.then(delay(60))
+			.then(assertNext(() => [[ sequencer.resolve(i2) ], [ late ], [ 2 ]]))
+			.then(assertOrder([ 1, 0, 3, 2 ]));
+	});
+
+	it('should limit the ratio & delay for blocked ids with delay unblocking', async () => {
+		const queued = result_type.queued, late = result_type.late;
+		const sequencer = createSequencer({ maxBlocked : 1, maxDelay : 100 });
+
+		const [ ida, idb ] = register(sequencer, 2);
+		let idd:number;
+
+		return Promise.resolve([])
+			.then(assertNext(() => [[ sequencer.immediate() ], [ queued ], [ 2 ]]))
+			.then(delay(60))
+			.then(assertNext(() => {
+				idd = sequencer.register();
+
+				return [ immediate(sequencer, 2), [ queued, queued ], [ 4, 5 ]];
+			}))
+			.then(delay(60))
+			.then(assertNext(() => [ schedule(sequencer, idd, idb, ida), [ late, late, late ], [ 3, 1, 0 ] ]))
+			.then(assertOrder([ 2, 4, 5, 3, 1, 0 ]));
+	});
+
+	it('should limit the ratio & delay for blocked ids with ratio unblocking', async () => {
+		const queued = result_type.queued, late = result_type.late;
+		const sequencer = createSequencer({ maxBlocked : 1, maxDelay : 100 });
+
+		const [ ida, idb ] = register(sequencer, 2);
+		let idd:number;
+
+		return Promise.resolve([])
+			.then(assertNext(() => [[ sequencer.immediate() ], [ queued ], [ 2 ]]))
+			.then(delay(60))
+			.then(assertNext(() => {
+				idd = sequencer.register();
+
+				return [[ sequencer.immediate(), sequencer.resolve(idb) ], [ queued, queued ], [ 4, 1 ]];
+			}))
+			.then(delay(60))
+			.then(assertOrder([ 1, 2 ]))
+			.then(delay(60))
+			.then(assertNext(() => [ schedule(sequencer, idd, ida), [ late, late ], [ 3, 0 ]]))
+			.then(assertOrder([ 1, 2, 4, 3, 0 ]));
 	});
 
 	it('should process consecutive blocks with arbitrary gaps', () => {

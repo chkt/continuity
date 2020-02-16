@@ -1,7 +1,7 @@
 import { createDeferred, Deferred } from "./deferred";
 import { getSequencerSettings, SequencerConfig } from "./settings";
 import { advanceIndex, getOffset } from "./loop";
-import { createQueueItem, split, insert, QueueItems, scheduleProcessing } from "./queue";
+import { createQueueItem, split, insert, QueueItems, scheduleProcessing, indexOf, QueueItem } from "./queue";
 import { createScheduleResult, result_type, ScheduleResult } from "./schedule";
 
 
@@ -23,6 +23,26 @@ export function createSequencer(config?:SequencerConfig) : Sequencer {
 	let last = settings.next;
 	let queue:QueueItems = [];
 	let scheduled = 0;
+
+	function advanceQueue() : void {
+		const pieces = split(queue, last, settings);
+
+		queue = pieces.partial;
+		last = advanceIndex(last, pieces.numIds);
+		scheduled += pieces.sequential.length;
+
+		scheduleProcessing(pieces.sequential).then(num => { scheduled -= num; });
+	}
+
+	function forwardQueue(item:QueueItem) : void {
+		const index = indexOf(queue, item);
+
+		if (index === -1) return;
+
+		last = item.id;
+
+		advanceQueue();
+	}
 
 	return {
 		register() : number {
@@ -46,17 +66,19 @@ export function createSequencer(config?:SequencerConfig) : Sequencer {
 			}
 			else {
 				const deferred:Deferred<ScheduleResult, void> = createDeferred();
-				const pieces = split(
-					insert(queue, createQueueItem(id, deferred.resolve)),
-					last,
-					settings
-				);
+				const item = createQueueItem(id, deferred.resolve);
 
-				queue = pieces.partial;
-				last = advanceIndex(last, pieces.numIds);
-				scheduled += pieces.sequential.length;
+				queue = insert(queue, item);
 
-				scheduleProcessing(pieces.sequential).then(num => { scheduled -= num; });
+				advanceQueue();
+
+				if (Number.isFinite(settings.maxDelay)) {
+					const index = indexOf(queue, item);
+
+					if (index === 0 || index > 0 && getOffset(queue[index - 1].id, id) > 1) {
+						setTimeout(forwardQueue.bind(null, item), settings.maxDelay);
+					}
+				}
 
 				return deferred.promise;
 			}
