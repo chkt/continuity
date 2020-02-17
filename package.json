@@ -24,7 +24,7 @@
 	"main": "./dist/index.js",
 
 	"scripts" : {
-		"prepare": "yarn run test && yarn run lint && yarn run build",
+		"prepublishOnly": "yarn run test && yarn run lint && yarn outdated && yarn run build",
 
 		"lint" : "./node_modules/tslint/bin/tslint -p tsconfig.json",
 		"test" : "./node_modules/mocha/bin/mocha -r ts-node/register test/**/*.ts",
