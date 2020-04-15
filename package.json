@@ -2,7 +2,7 @@
 	"name": "@chkt/continuity",
 	"description": "Sequentially aligned promise resolution",
 	"keywords": [ "promise", "sequence", "sequential", "typescript", "ts" ],
-	"version": "1.0.0-beta.3",
+	"version": "1.0.0-beta.4",
 	"license": "MIT",
 
 	"author": {
