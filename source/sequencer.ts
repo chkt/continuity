@@ -1,20 +1,28 @@
 import { createDeferred, Deferred } from "./deferred";
 import { getSequencerSettings, SequencerConfig } from "./settings";
 import { advanceIndex, getOffset } from "./loop";
-import { createQueueItem, split, insert, QueueItems, scheduleProcessing, indexOf, QueueItem } from "./queue";
+import { createQueueItem, split, insert, process, QueueItems, indexOf, QueueItem } from "./queue";
 import { createScheduleResult, result_type, ScheduleResult } from "./schedule";
 
 
+type onDispatch = (result:ScheduleResult) => void;
 type settle<T> = (val:T) => Promise<T>;
 
 export interface Sequencer {
 	register() : number;
+	schedule(id:number, fn:onDispatch) : void;
 	resolve(id:number) : Promise<ScheduleResult>;
 	immediate() : Promise<ScheduleResult>;
 	align<T>() : settle<T>;
 	assign<T>(p:Promise<T>) : Promise<T>;
 }
 
+
+async function defer<T>(fn:() => T) : Promise<T> {
+	await Promise.resolve();
+
+	return fn();
+}
 
 export function createSequencer(config?:SequencerConfig) : Sequencer {
 	const settings = getSequencerSettings(config);
@@ -31,7 +39,7 @@ export function createSequencer(config?:SequencerConfig) : Sequencer {
 		last = advanceIndex(last, pieces.numIds);
 		scheduled += pieces.sequential.length;
 
-		scheduleProcessing(pieces.sequential).then(num => { scheduled -= num; });
+		defer(process.bind(null, pieces.sequential)).then(num => { scheduled -= num; });
 	}
 
 	function forwardQueue(item:QueueItem) : void {
@@ -52,21 +60,22 @@ export function createSequencer(config?:SequencerConfig) : Sequencer {
 
 			return res;
 		},
-		resolve(id:number) : Promise<ScheduleResult> {
+		schedule(id:number, fn:onDispatch) : void {
 			const offset = getOffset(last, id);
 
 			if (offset < 0 || getOffset(next, id) >= 0) {
-				if (scheduled === 0) return Promise.resolve(createScheduleResult(id, result_type.late));
-				else return Promise.resolve(createScheduleResult(id, result_type.late)).then(res => res);
+				const res = createScheduleResult(id, result_type.late);
+
+				if (scheduled === 0) fn(res);
+				else defer(fn.bind(null, res));
 			}
-			else if (offset === 0 && queue.length === 0 && scheduled === 0) {
+			else if (scheduled === 0 && offset === 0 && queue.length === 0) {
 				last = advanceIndex(last);
 
-				return Promise.resolve(createScheduleResult(id, result_type.immediate));
+				fn(createScheduleResult(id, result_type.immediate));
 			}
 			else {
-				const deferred:Deferred<ScheduleResult, void> = createDeferred();
-				const item = createQueueItem(id, deferred.resolve);
+				const item = createQueueItem(id, fn);
 
 				queue = insert(queue, item);
 
@@ -79,9 +88,14 @@ export function createSequencer(config?:SequencerConfig) : Sequencer {
 						setTimeout(forwardQueue.bind(null, item), settings.maxDelay);
 					}
 				}
-
-				return deferred.promise;
 			}
+		},
+		resolve(id:number) : Promise<ScheduleResult> {
+			const deferred:Deferred<ScheduleResult, void> = createDeferred();
+
+			this.schedule(id, deferred.resolve);
+
+			return deferred.promise;
 		},
 		immediate(this:Sequencer) : Promise<ScheduleResult> {
 			return this.resolve(this.register());

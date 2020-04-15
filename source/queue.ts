@@ -58,7 +58,7 @@ export function insert(queue:QueueItems, item:QueueItem) : QueueItems {
 		.concat(item, queue.slice(index));
 }
 
-function process(queue:QueueItems) : number {
+export function process(queue:QueueItems) : number {
 	let num = 0;
 
 	for (const item of queue) {
@@ -67,12 +67,6 @@ function process(queue:QueueItems) : number {
 	}
 
 	return num;
-}
-
-export function scheduleProcessing(queue:QueueItems) : Promise<number> {
-	return Promise
-		.resolve(queue)
-		.then(q => process(q));
 }
 
 export function split(queue:QueueItems, firstId:number, options:QueueOptions) : SplitResult {

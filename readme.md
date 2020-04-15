@@ -22,7 +22,6 @@ Then the processing of each promise becomes blocked for a random amount of time 
 Afterwards The execution of subsequent `.then()` calls is being realigned
 to correspond the the order in which their calls to `sequencer.align()` were made.
 
-
 ```typescript
 import * as assert from 'assert';
 import { createSequencer } from '@chkt/continuity';
@@ -56,6 +55,45 @@ Promise.all(resolved).then(() => {
 });
 ```
 
+**Note** that while the order in which promises are resolved is guaranteed,
+by the nature of common promise implementations, 
+the order in which subsequent `.then()` handlers are executed is *not*.
+
+```typescript
+import * as assert from 'assert';
+import { createSequencer } from '@chkt/continuity';
+
+const sequencer = createSequencer();
+const ids:string[] = [];
+
+const idA = sequencer.register();
+
+const promiseB = sequencer
+  .immediate()
+  .then(function pushB() {
+    ids.push('b');
+  });
+
+const promiseA = Promise
+  .resolve()
+  .then(() => sequencer.resolve(idA))
+  .then(function pushA() {
+    ids.push('a');
+  });
+
+Promise
+  .all([ promiseA, promiseB ])
+  .then(() => {
+    assert.deepStrictEqual(ids, [ 'a', 'b' ]);
+  });
+```
+
+For most modern javascript engines (including V8 and Spidermonkey) the example above will resolve to `false`.
+Although the Promises are resolved in the order `promiseA`, `promiseB`, 
+both engines schedule the execution of `pushA` after the execution of `pushB`.
+
+Using `.schedule()` instead will guarantee handler execution order. 
+
 ## Api
 ```typescript
 interface SequencerConfig {
@@ -73,7 +111,8 @@ interface ScheduleResult {
 
 interface Sequencer {
   register() : number; // get a sequential id
-  resolve(id:number) : Promise<ScheduleResult>; // resolve a registered id for processing
+  schedule(id:number, fn:(result:ScheduleResult) => void) : void; // schedule a registered id for processing
+  resolve(id:number) : Promise<ScheduleResult>; // get a promise representing a scheduled id
   immediate() : Promise<ScheduleResult>; // shorthand for sequencer.resolve(sequencer.register())
   align<T>() : (val:T) => Promise<T>; // get a trigger function for scheduling
   assign<T>(p:Promise<T>) : Promise<T>; // shorthand for promise.then(sequencer.align())
